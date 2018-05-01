@@ -1,0 +1,2 @@
+- ardu nano/mini I2C on A4/A5
+- nodeMCU with i2c in D1/D2 via Wire.begin(D1,D2);
