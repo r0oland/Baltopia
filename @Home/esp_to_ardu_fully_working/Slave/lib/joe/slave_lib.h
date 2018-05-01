@@ -40,7 +40,6 @@ const uint8_t DHT_TYPE = 22; // DHT22, see DTH.h
 
 // communication constants
 const uint32_t SERIAL_SPEED = 9600; // needs to be prgrammed into the ESP, default is higher
-const byte SLAVE_ADDRESS = 42;
 
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 // function declarations
@@ -52,12 +51,5 @@ const byte SLAVE_ADDRESS = 42;
 
 // TODO - implement these functions as well?
 // slave ready command
-
-
-void check_light_button_pushed();
-
-// I2C interrupt functions
-void requestEvent();
-void receiveEvent(int howMany);
 
 #endif

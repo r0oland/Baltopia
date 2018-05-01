@@ -53,11 +53,4 @@ const byte SLAVE_ADDRESS = 42;
 // TODO - implement these functions as well?
 // slave ready command
 
-
-void check_light_button_pushed();
-
-// I2C interrupt functions
-void requestEvent();
-void receiveEvent(int howMany);
-
 #endif
