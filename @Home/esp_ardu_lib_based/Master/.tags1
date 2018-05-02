@@ -1,0 +1,22 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	0	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+ET	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^EasyTransferI2C ET;$/;"	variable	line:7
+DataStruct	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^struct DataStruct{$/;"	struct	line:11	file:
+i8	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^  int8_t i8 = 0;$/;"	member	line:14	struct:DataStruct	file:
+ui8	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^  uint8_t ui8 = 0;$/;"	member	line:15	struct:DataStruct	file:
+i16	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^  int16_t i16 = 0;$/;"	member	line:16	struct:DataStruct	file:
+mydata	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^DataStruct mydata;$/;"	variable	line:20
+sendData	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^DataStruct sendData;$/;"	variable	line:21
+sendData2	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^DataStruct sendData2;$/;"	variable	line:22
+PROTOCOL_OVERHEAD	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^const uint8_t PROTOCOL_OVERHEAD = 4; \/\/ 4 bytes, 0x06, 0x85, size and checksum$/;"	variable	line:23
+I2C_SLAVE_ADDRESS	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^const uint8_t I2C_SLAVE_ADDRESS = 9;$/;"	variable	line:25
+I2C_SLAVE_2_ADDRESS	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^const uint8_t I2C_SLAVE_2_ADDRESS = 10;$/;"	variable	line:26
+MAX_I2C_STRUCT_SIZE	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^const uint8_t MAX_I2C_STRUCT_SIZE = 26;$/;"	variable	line:27
+sclPin	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^const int sclPin = D1;$/;"	variable	line:29
+sdaPin	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^const int sdaPin = D2;$/;"	variable	line:30
+setup	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^void setup(){$/;"	function	line:32	signature:()
+loop	D:\Coding\BaltopiaGithub\@Home\esp_to_ardu_fully_working\Master\src\master_main.cpp	/^void loop(){$/;"	function	line:60	signature:()
