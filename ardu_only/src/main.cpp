@@ -163,17 +163,17 @@ void loop() {
 
   // set outputs (heat pad, pump) based on sensor values -----------------------
 
-  // FIXME add safety checks here!!!!
-  if ((heatPadTemp > 41.0) || (meanTemp > 27.0))
-  {
-    digitalWrite(RELAIS_HEAT_PAD, HIGH); // high = off
-    Serial.println("Heatpad is OFF");
-  }
-  else
-  {
-    digitalWrite(RELAIS_HEAT_PAD, LOW); // low = off
-    Serial.println("Heatpad is ON");
-  }
+  // // FIXME add safety checks here!!!!
+  // if ((heatPadTemp > 41.0) || (meanTemp > 27.0))
+  // {
+  //   digitalWrite(RELAIS_HEAT_PAD, HIGH); // high = off
+  //   Serial.println("Heatpad is OFF");
+  // }
+  // else
+  // {
+  //   digitalWrite(RELAIS_HEAT_PAD, LOW); // low = off
+  //   Serial.println("Heatpad is ON");
+  // }
 
   // FIXME add safety checks here!!!!
   if (resistance > 3000)
@@ -181,7 +181,7 @@ void loop() {
     Serial.print("Turning pump ON...");
     digitalWrite(RELAIS_PUMP, LOW); // high = off
     Serial.print("pumping...");
-    delay(5000);
+    delay(10000);
     digitalWrite(RELAIS_PUMP, HIGH); // high = off
     Serial.println("Done!");
   }
@@ -191,7 +191,7 @@ void loop() {
   }
 
   Serial.println("");
-  delay(10000);
+  delay(20000);
 }
 
 void setupCurrentPath() {
