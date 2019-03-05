@@ -33,6 +33,9 @@ void setup(){
   Serial.begin(9600);
 
   WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  WiFi.begin(ssid, pass); // Connect to WPA/WPA2 network. Change this line if using open or WEP network
+
   ThingSpeak.begin(client);
 
   Serial.println("===========================================================");
@@ -47,11 +50,13 @@ void loop(){
     Serial.print("Attempting to connect to SSID: ");
     Serial.println(SECRET_SSID);
     while (WiFi.status() != WL_CONNECTED) {
-      WiFi.begin(ssid, pass); // Connect to WPA/WPA2 network. Change this line if using open or WEP network
+      // WiFi.begin(ssid); // Connect to WPA/WPA2 network. Change this line if using open or WEP network
       Serial.print(".");
       delay(1000);
     }
-    Serial.println("\nConnected.");
+    Serial.println("success!");
+    Serial.print("IP Address is: ");
+    Serial.println(WiFi.localIP());
   }
 
   //this is how you access the variables. [name of the group].[variable name]
@@ -85,8 +90,8 @@ void loop(){
     Serial.println(NanoSensorData.soilRes);
     Serial.println(NanoSensorData.status);
     // Write value to Field 1 of a ThingSpeak Channel
-    float kOhm = NanoSensorData.soilRes/100.0;
-    int httpCode = ThingSpeak.writeField(myChannelNumber, 1, kOhm, myWriteAPIKey);
+    float kOhm = NanoSensorData.soilRes;
+    int httpCode = ThingSpeak.writeField(myChannelNumber, 2, kOhm, myWriteAPIKey);
 
     if (httpCode == 200) {
       Serial.println("Channel write successful.");
