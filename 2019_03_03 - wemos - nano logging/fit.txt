@@ -1,0 +1,12 @@
+General model Exp1:
+     f(x) = a*exp(b*x)
+Coefficients (with 95% confidence bounds):
+       a =       2.598  (2.374, 2.823)
+       b =   -0.009346  (-0.009976, -0.008716)
+
+Goodness of fit:
+  SSE: 0.08005
+  R-square: 0.9853
+  Adjusted R-square: 0.985
+  RMSE: 0.04084
+
