@@ -1,6 +1,14 @@
 #include <Baltopia.h> // send data stucts, see in shared libs folder
 #include "..\lib\Joe\slave_lib.h"
 
+#include "OneWire.h" // OneWire by Paul Stoffregen
+#include "DallasTemperature.h" // DallasTemperature by Guil Barros
+DeviceAddress tempDeviceAddress; // We'll use this variable to store a found device address
+void printAddress(DeviceAddress deviceAddress);
+const uint8_t ONE_WIRE_BUS = 12; // -127 = no pull down, not connected
+OneWire OneWire(ONE_WIRE_BUS);
+DallasTemperature Sensors(&OneWire);
+
 ////////////////////////////////////////////////////////////////////////////////
 void setup(){
   // setup digital output pins
@@ -12,30 +20,52 @@ void setup(){
   // Can be Serial, Serial1, Serial2, etc.
   ET.begin((byte*)&NanoSensorData, sizeof(NanoSensorData), &Wire);
   //define handler function on receiving and request data
+
   Wire.onReceive(receive);
   Wire.onRequest(data_request_from_master);
+
+  Sensors.begin();
+
   Serial.begin(SERIAL_SPEED);
   Serial.println("===========================================================");
-  Serial.println("[SLAVE] Ready to go!");
+  Serial.println("[SOIL SLAVE] Ready to go!");
 
-  realRes = measure_resistance()/100;
+
+  fullRes = measure_resistance();
     // measure once to get startign value for movign avarage in loop()
-    // divide by 100 in order to go from 1 M ohm to 10k Ohm which can be stored as uint16
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void loop() {
-  realRes = (measure_resistance()/100 + realRes)/2; // moving average
-  NanoSensorData.soilRes = realRes;
+
+  // measure resolution and convert to better scale (see note below)
+  fullRes = (measure_resistance() + fullRes)/2; // moving average
+  // convert full Res to log and multiply, this way we use 16 bit resolution better
+  // and linearize the scale a bit...
+  uint16_t linearResistance = 1000*log10(fullRes);
+    // NOTE resistance is in range between 1 and 10^6, so log(10) of resistance
+    // is betweem 1 and 6, but we send uint16 integers, with a range of 0-65,535
+    // so we take log10 and multiply by 10, thus having a nice, and 'linear'
+    // scale with a descent resolution
+
+  // measure one-wire temperature
+  Sensors.requestTemperatures();
+  Sensors.getAddress(tempDeviceAddress, 0);
+  int16_t rawTemperature = Sensors.getTemp(tempDeviceAddress);
+  // save all measurements to the sensor data struct which is called by the
+  // wemos master in regular intervals
   NanoSensorData.status += 1;
-  delay(500);
+  NanoSensorData.temp1 = rawTemperature;
+  NanoSensorData.soilRes1 = linearResistance;
+  delay(2000);
 
   if(answeredMasterRequest)
   {
     Serial.println("[SLAVE] Send data to master!");
     Serial.print("[SLAVE] Measured resistance: ");
-    Serial.println(NanoSensorData.soilRes);
-    // Serial.println(NanoSensorData.soilRes);
+    Serial.println(NanoSensorData.soilRes1);
+    Serial.print("[SLAVE] Measured temperature: ");
+    Serial.println(rawTemperature*1.0/128.0);
     answeredMasterRequest = false;
   }
 
@@ -92,9 +122,6 @@ int32_t measure_resistance(){
   resistance = resistance/N_READS;
   if (resistance > MEGA)
     resistance = MEGA; // set to mega ohm
-
-  Serial.print("average: ");
-  Serial.println(resistance);
 
   return resistance;
 }

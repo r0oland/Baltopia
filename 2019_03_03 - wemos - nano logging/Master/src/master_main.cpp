@@ -26,7 +26,7 @@ void setup(){
     }
   }
 
-  Wire.begin(D2,D1);
+  Wire.begin(D2,D1); // still need to remeber what these are...
   //start the library, pass in the data details and the name of the serial port
   Wire.onReceive(receive);
   ET.begin((byte*)&NanoSensorData, sizeof(NanoSensorData), &Wire);
