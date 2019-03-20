@@ -21,7 +21,7 @@ SensorData NanoSensorData;
 
 // define general constants %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 const uint8_t N_READS = 10;    // Number of sensor reads for filtering
-const uint16_t COMP_RESISTOR = 15000;  // Constant value of known resistor in Ohms
+const uint16_t COMP_RESISTOR = 21100;  // Constant value of known resistor in Ohms
 const uint32_t MEGA = 1000000;  // Constant value of known resistor in Ohms
 
 // Sensor libraries
@@ -34,10 +34,10 @@ const uint32_t MEGA = 1000000;  // Constant value of known resistor in Ohms
 // DEFINE ANALOG PINS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 // A0 - moisture sensor
 // A4 & A5 used for I2C
-const uint8_t MOIST_SENSE_1 = A5;
-const uint8_t MOIST_SENSE_2 = A4;
-const uint8_t MOIST_SENSE_3 = A3;
-const uint8_t MOIST_SENSE_4 = A2;
+const uint8_t MOIST_SENSE_1 = A3;
+const uint8_t MOIST_SENSE_2 = A2;
+const uint8_t MOIST_SENSE_3 = A1;
+const uint8_t MOIST_SENSE_4 = A0;
 
 
 // DEFINE DIGITAL PINS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
