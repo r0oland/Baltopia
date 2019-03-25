@@ -9,6 +9,9 @@ const uint8_t ONE_WIRE_BUS = 12; // -127 = no pull down, not connected
 OneWire OneWire(ONE_WIRE_BUS);
 DallasTemperature Sensors(&OneWire);
 
+#include "Adafruit_CCS811.h"
+Adafruit_CCS811 ccs;
+
 ////////////////////////////////////////////////////////////////////////////////
 void setup(){
   // setup digital output pins
@@ -33,21 +36,35 @@ void setup(){
   Serial.println("[SOIL SLAVE] Ready to go!");
 
 
-  fullRes = measure_resistance();
+  fullRes1 = measure_resistance(0);
+  fullRes2 = measure_resistance(1);
     // measure once to get startign value for movign avarage in loop()
+
+  if(!ccs.begin())
+  {
+    Serial.println("Failed to start sensor! Please check your wiring.");
+    while(1);
+  }
+  Serial.println("Calibration temperature sensor...");
+
+  //calibrate temperature sensor
+  while(!ccs.available());
+  float temp = ccs.calculateTemperature();
+  ccs.setTempOffset(temp - 25.0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void loop() {
+  NanoSensorData.status += 1;
 
-  // measure resolution and convert to better scale (see note below)
-  uint32_t currentRest = measure_resistance();
-  fullRes = (currentRest + fullRes)/2; // moving average
-
+  // Measure plant 1 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  // measure resistance and convert to better scale (see note below)
+  uint32_t currentRes1 = measure_resistance(0);
+  fullRes1 = (currentRes1 + fullRes1)/2; // moving average
 
   // convert full Res to log and multiply, this way we use 16 bit resolution better
   // and linearize the scale a bit...
-  uint16_t linearResistance = 10000*log10(fullRes);
+  NanoSensorData.soilRes1 = 10000*log10(fullRes1);
     // NOTE resistance is in range between 1 and 10^6, so log(10) of resistance
     // is betweem 1 and 6, but we send uint16 integers, with a range of 0-65,535
     // so we take log10 and multiply by 10, thus having a nice, and 'linear'
@@ -56,27 +73,72 @@ void loop() {
   // measure one-wire temperature
   Sensors.requestTemperatures();
   Sensors.getAddress(tempDeviceAddress, 0);
-  int16_t rawTemperature = Sensors.getTemp(tempDeviceAddress);
-  // save all measurements to the sensor data struct which is called by the
-  // wemos master in regular intervals
-  NanoSensorData.status += 1;
-  NanoSensorData.temp1 = rawTemperature;
-  NanoSensorData.soilRes1 = linearResistance;
-  delay(2000);
+  NanoSensorData.temp1 = Sensors.getTemp(tempDeviceAddress);
+  float tempCel1 = NanoSensorData.temp1*1.0/128.0; // we send data as int, but display it as float
 
-  if(answeredMasterRequest || true)
-  {
-    Serial.println("[SLAVE] Send data to master!");
-    Serial.print("[SLAVE] Measured resistance: ");
-    Serial.println(currentRest);
-    Serial.print("[SLAVE] Averaged resistance: ");
-    Serial.println(fullRes);
-    Serial.print("[SLAVE] Calculated linear resistance: ");
-    Serial.println(linearResistance);
-    Serial.print("[SLAVE] Measured temperature: ");
-    Serial.println(rawTemperature*1.0/128.0);
-    answeredMasterRequest = false;
+  // Measure plant 1 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+  // Measure plant 1 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  // measure resistance and convert to better scale (see note below)
+  uint32_t currentRes2 = measure_resistance(1);
+  fullRes2 = (currentRes2 + fullRes2)/2; // moving average
+
+  // convert full Res to log and multiply, this way we use 16 bit resolution better
+  // and linearize the scale a bit...
+  NanoSensorData.soilRes2 = 10000*log10(fullRes2);
+    // NOTE resistance is in range between 1 and 10^6, so log(10) of resistance
+    // is betweem 1 and 6, but we send uint16 integers, with a range of 0-65,535
+    // so we take log10 and multiply by 10, thus having a nice, and 'linear'
+    // scale with a descent resolution
+
+  // measure one-wire temperature
+  Sensors.requestTemperatures();
+  Sensors.getAddress(tempDeviceAddress, 1);
+  NanoSensorData.temp2 = Sensors.getTemp(tempDeviceAddress);
+  float tempCel2 = NanoSensorData.temp2*1.0/128.0; // we send data as int, but display it as float
+
+  if(ccs.available()){
+    float temp = ccs.calculateTemperature();
+    if(!ccs.readData()){
+      Serial.print("CO2: ");
+      Serial.print(ccs.geteCO2());
+      Serial.print("ppm, TVOC: ");
+      Serial.print(ccs.getTVOC());
+      Serial.print("ppb   Temp:");
+      Serial.println(temp);
+    }
+    else{
+      Serial.println("ERROR!");
+      while(1);
+    }
   }
+
+  delay(1000); // FIXME make once every 10s or so, which is still waay to much...
+
+  // if(answeredMasterRequest || true)
+  // {
+    Serial.println("----------------------------------------------------------");
+    Serial.println("[SLAVE] Send data to master!");
+    Serial.print("[SLAVE] Measured resistance 1: ");
+    Serial.println(currentRes1);
+    Serial.print("[SLAVE] Averaged resistance 1: ");
+    Serial.println(fullRes1);
+    Serial.print("[SLAVE] Calculated linear resistance 1: ");
+    Serial.println(NanoSensorData.soilRes1);
+    Serial.print("[SLAVE] Measured temperature 1: ");
+    Serial.println(tempCel1);
+    Serial.println();
+    Serial.print("[SLAVE] Measured resistance 1: ");
+    Serial.println(currentRes2);
+    Serial.print("[SLAVE] Averaged resistance 1: ");
+    Serial.println(fullRes2);
+    Serial.print("[SLAVE] Calculated linear resistance 1: ");
+    Serial.println(NanoSensorData.soilRes2);
+    Serial.print("[SLAVE] Measured temperature 1: ");
+    Serial.println(tempCel2);
+    Serial.println();
+    answeredMasterRequest = false;
+  // }
 
 }
 
@@ -92,8 +154,47 @@ void data_request_from_master()
   answeredMasterRequest = true;
 }
 
+void setupCurrentPath(uint8_t iPath, uint8_t changeCurrentPath) {
+  // setup current paths for nPaths, where each path is connected to their own
+  // moisture sensing gypsum sensor
+  switch (iPath)
+  {
+    case 0: // first current path
+      if (doReadForward)
+      {
+        activeDigitalPin = MOIST_SUPPL_2;
+        supplyVoltageAnalogPin = MOIST_SENSE_2;
+        sensorVoltageAnalogPin = MOIST_SENSE_1;
+      }
+      else {
+        activeDigitalPin = MOIST_SUPPL_1;
+        supplyVoltageAnalogPin = MOIST_SENSE_1;
+        sensorVoltageAnalogPin = MOIST_SENSE_2;
+      }
+      break;
+    case 1:
+      if (doReadForward)
+      {
+        activeDigitalPin = MOIST_SUPPL_3;
+        supplyVoltageAnalogPin = MOIST_SENSE_3;
+        sensorVoltageAnalogPin = MOIST_SENSE_4;
+      }
+      else {
+        activeDigitalPin = MOIST_SUPPL_4;
+        supplyVoltageAnalogPin = MOIST_SENSE_4;
+        sensorVoltageAnalogPin = MOIST_SENSE_3;
+      }
+      break;
+    default:
+      break;
+  }
 
-int32_t measure_resistance(){
+  if (changeCurrentPath)
+    doReadForward != doReadForward;
+}
+
+
+int32_t measure_resistance(uint8_t currentPath){
   // Serial.print("[SLAVE] Measuring soil resistance...");
   // http://vanderleevineyard.com/vineyard-blog/-the-vinduino-project-3-make-a-low-cost-soil-moisture-sensor-reader
   // read sensor, filter, and calculate resistance value
@@ -101,8 +202,9 @@ int32_t measure_resistance(){
 
   int32_t resistance = 0; // reset resistance
   int32_t tempResistance = 0; // reset resistance
-  for (int i=0; i < N_READS; i++) {
-    setupCurrentPath();      // Prepare the digital and analog pin values
+  for (int i=0; i < N_READS; i++)
+  {
+    setupCurrentPath(currentPath,1);      // Prepare the digital and analog pin values
 
     digitalWrite(activeDigitalPin, HIGH);                 // set the voltage supply on
     delay(10);
@@ -121,14 +223,6 @@ int32_t measure_resistance(){
       tempResistance = MEGA*3; // set to 1M ohm as upper limit
         // if sensor readout becomes too small, resistance values become meaningless
         // so set upper limit for possible resistance
-
-    // Serial.print(supplyReadOut);
-    // Serial.print(" ");
-    // Serial.print(sensorReadOut);
-    // Serial.print(" ");
-    //
-    // Serial.print(tempResistance);
-    // Serial.println(" ");
     resistance += tempResistance;
   }
 
@@ -137,17 +231,4 @@ int32_t measure_resistance(){
     resistance = MEGA*3; // set to mega ohm
 
   return resistance;
-}
-
-void setupCurrentPath() {
-  if ( activeDigitalPin == MOIST_SUPPL_1 ) {
-    activeDigitalPin = MOIST_SUPPL_2;
-    supplyVoltageAnalogPin = MOIST_SENSE_2;
-    sensorVoltageAnalogPin = MOIST_SENSE_1;
-  }
-  else {
-    activeDigitalPin = MOIST_SUPPL_1;
-    supplyVoltageAnalogPin = MOIST_SENSE_1;
-    sensorVoltageAnalogPin = MOIST_SENSE_2;
-  }
 }

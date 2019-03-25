@@ -4,15 +4,16 @@
 #include <Arduino.h>
 #include <Baltopia.h> // send data stucts, see in shared libs folder
 
-
 // define global variables %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 // use a few as possible
 uint8_t answeredMasterRequest = false;
 uint8_t supplyVoltageAnalogPin;
 uint8_t sensorVoltageAnalogPin;
 
-uint32_t fullRes;
+uint32_t fullRes1;
+uint32_t fullRes2;
 uint8_t activeDigitalPin;
+uint8_t doReadForward = 0; // switch between current during analog read of moisture sensor
 
 EasyTransferI2C ET;
 
@@ -61,8 +62,8 @@ const uint8_t MOIST_SUPPL_4 = 5; // -127 = no pull down, not connected
 // function declarations
 void receive(int numBytes) {};
 void data_request_from_master();
-void setupCurrentPath();
-int32_t measure_resistance();
+void setupCurrentPath(uint8_t iPath, uint8_t changeCurrentPath);
+int32_t measure_resistance(uint8_t currentPath);
 
 
 #endif
