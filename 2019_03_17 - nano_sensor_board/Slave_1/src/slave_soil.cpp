@@ -9,8 +9,9 @@ const uint8_t ONE_WIRE_BUS = 12; // -127 = no pull down, not connected
 OneWire OneWire(ONE_WIRE_BUS);
 DallasTemperature Sensors(&OneWire);
 
-#include "Adafruit_CCS811.h"
-Adafruit_CCS811 ccs;
+#include "Adafruit_Si7021.h"
+Adafruit_Si7021 moistSense = Adafruit_Si7021();
+
 
 ////////////////////////////////////////////////////////////////////////////////
 void setup(){
@@ -40,17 +41,16 @@ void setup(){
   fullRes2 = measure_resistance(1);
     // measure once to get startign value for movign avarage in loop()
 
-  if(!ccs.begin())
+  if (!moistSense.begin())
   {
-    Serial.println("Failed to start sensor! Please check your wiring.");
-    while(1);
+    Serial.println("Did not find Si7021 moistSense!");
+    while (true){};
   }
-  Serial.println("Calibration temperature sensor...");
+  else
+  {
+    Serial.println("Found Si7021 moisture & temperature sensor!");
+  }
 
-  //calibrate temperature sensor
-  while(!ccs.available());
-  float temp = ccs.calculateTemperature();
-  ccs.setTempOffset(temp - 25.0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -97,21 +97,11 @@ void loop() {
   NanoSensorData.temp2 = Sensors.getTemp(tempDeviceAddress);
   float tempCel2 = NanoSensorData.temp2*1.0/128.0; // we send data as int, but display it as float
 
-  if(ccs.available()){
-    float temp = ccs.calculateTemperature();
-    if(!ccs.readData()){
-      Serial.print("CO2: ");
-      Serial.print(ccs.geteCO2());
-      Serial.print("ppm, TVOC: ");
-      Serial.print(ccs.getTVOC());
-      Serial.print("ppb   Temp:");
-      Serial.println(temp);
-    }
-    else{
-      Serial.println("ERROR!");
-      while(1);
-    }
-  }
+  Serial.print("Humidity:    ");
+  Serial.print(moistSense.readHumidity(), 2);
+  Serial.print("\tTemperature: ");
+  Serial.println(moistSense.readTemperature(), 2);
+
 
   delay(1000); // FIXME make once every 10s or so, which is still waay to much...
 
