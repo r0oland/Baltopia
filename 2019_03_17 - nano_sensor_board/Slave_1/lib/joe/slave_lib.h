@@ -48,6 +48,10 @@ const uint8_t MOIST_SUPPL_2 = 3; // -127 = no pull down, not connected
 const uint8_t MOIST_SUPPL_3 = 4; // -127 = no pull down, not connected
 const uint8_t MOIST_SUPPL_4 = 5; // -127 = no pull down, not connected
 
+// PWM pins for pump control,  possible are 3, 5, 6, 9, 10
+const uint8_t PUMP_PIN_1 = 6; // -127 = no pull down, not connected
+const uint8_t PUMP_PIN_2 = 9; // -127 = no pull down, not connected
+
 // const uint8_t DHT_PIN = 2; // digital pin DHT is connected to
 // const uint8_t ONE_WIRE_BUS = 3;
 // const uint8_t TEMP_RELAIS_PIN = 4;

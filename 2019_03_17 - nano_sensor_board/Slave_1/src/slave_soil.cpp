@@ -21,6 +21,9 @@ void setup(){
   pinMode(MOIST_SUPPL_3, OUTPUT);
   pinMode(MOIST_SUPPL_4, OUTPUT);
 
+  pinMode(PUMP_PIN_1, OUTPUT);
+  pinMode(PUMP_PIN_2, OUTPUT);
+
   Wire.begin(I2C_SLAVE_ADDRESS); //I2C: 4 (SDA) and 5 (SCL)
   // start the library, pass in the data details and the name of the serial port.
   // Can be Serial, Serial1, Serial2, etc.
@@ -102,8 +105,16 @@ void loop() {
   Serial.print("\tTemperature: ");
   Serial.println(moistSense.readTemperature(), 2);
 
-
-  delay(1000); // FIXME make once every 10s or so, which is still waay to much...
+  // for (uint8_t pumpPower = 0; pumpPower < 11; pumpPower++){
+  //   analogWrite(PUMP_PIN_1, pumpPower*255/10);          // set the voltage supply on
+  //   Serial.print("pumping with power: ");
+  //   Serial.println(pumpPower*255/10);
+  //   delay(500);
+  // }
+  analogWrite(PUMP_PIN_2, 50);          // set the voltage supply on
+  delay(10000);
+  analogWrite(PUMP_PIN_2, 255);          // set the voltage supply on
+  delay(10000);
 
   // if(answeredMasterRequest || true)
   // {
