@@ -1,19 +1,11 @@
 #include <Arduino.h>
 #include <FastLED.h>
 #include <WiFi.h>
+#include <Wire.h>
 #include <AdafruitIO_WiFi.h>
-#include <Adafruit_Sensor.h>
-#include <DHT.h>
-#include <DHT_U.h>
-
-#define DHTTYPE DHT22 // DHT 22 (AM2302)
-#define DHTPIN_IN 5      // Digital pin connected to the DHT sensor
-#define DHTPIN_OUT 18      // Digital pin connected to the DHT sensor
-
-DHT_Unified DhtIn(DHTPIN_IN, DHTTYPE);
-DHT_Unified DhtOut(DHTPIN_OUT, DHTTYPE);
 
 #include "secrets.h"
+#include "SHT21.h"
 
 FASTLED_USING_NAMESPACE
 
@@ -34,14 +26,14 @@ CRGB leds[NUM_LEDS]; // contains led info, this we set first, the we call led sh
 
 // setup adafruit stuff
 AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, WIFI_SSID, WIFI_PWD);
-AdafruitIO_Feed *insideHumid = io.feed("inside_humid2");
-AdafruitIO_Feed *insideTemp = io.feed("inside_temp2");
-AdafruitIO_Feed *outsideTemp = io.feed("outside_temp2");
-AdafruitIO_Feed *outsideHumid = io.feed("outside_humid2");
+AdafruitIO_Feed *insideHumid = io.feed("inside_humid");
+AdafruitIO_Feed *insideTemp = io.feed("inside_temp");
 
 // read analog channels
 uint16_t analogValue = 0;
 uint8_t goodPins[13] = {34, 32, 33, 25, 26, 27, 14, 12, 13, 4, 0, 2, 15}; // they all seem to work...
+
+SHT21 SHTSensor;
 
 void setup()
 {
@@ -52,6 +44,9 @@ void setup()
   setup_leds();
   Serial.println("done!");
   set_led_status(1); // working
+
+  // Serial.print("Setting up wifi connection:");
+  // setup_wifi();
 
   // connect to io.adafruit.com
   Serial.print("Connecting to Adafruit IO");
@@ -68,8 +63,8 @@ void setup()
   Serial.println(io.statusText());
 
   Serial.print("Setting up sensors...");
-  DhtIn.begin();
-  DhtOut.begin();
+  Wire.begin(16, 17); // I2C_SDA = 16 | I2C_SCL = 17
+  SHTSensor.begin();
   Serial.println("done!");
 
   Serial.println();
@@ -184,64 +179,15 @@ void setup_wifi()
 void update_humid_values()
 {
   set_led_status(1); // working
-  sensors_event_t event;
-  // get inside temperature ----------------------------------------------------
-  DhtIn.temperature().getEvent(&event);
-  if (isnan(event.temperature))
-  {
-    Serial.println(F("Error reading temperature!"));
-  }
-  else
-  {
-    Serial.print(F("Temperature Inside: "));
-    Serial.print(event.temperature);
-    Serial.print(F("°C"));
-    insideTemp->save(event.temperature);
-  }
+  float humid = SHTSensor.getHumidity();
+  Serial.print("Humidity(%RH): ");
+  Serial.println(humid);
+  insideHumid->save(humid);
 
-  // get inside humidity ----------------------------------------------------
-  DhtIn.humidity().getEvent(&event);
-  if (isnan(event.relative_humidity))
-  {
-    Serial.println(F("Error reading humidity!"));
-  }
-  else
-  {
-    Serial.print(F("  Humidity Inside: "));
-    Serial.print(event.relative_humidity);
-    Serial.println(F("%"));
-    insideHumid->save(event.relative_humidity);
-  }
-
-  // get outside temperature ----------------------------------------------------
-  DhtOut.temperature().getEvent(&event);
-  if (isnan(event.temperature))
-  {
-    Serial.println(F("Error reading temperature!"));
-  }
-  else
-  {
-    Serial.print(F("Temperature Outside: "));
-    Serial.print(event.temperature);
-    Serial.print(F("°C"));
-    outsideTemp->save(event.temperature);
-  }
-
-  // get outside humdidity ----------------------------------------------------
-  DhtOut.humidity().getEvent(&event);
-  if (isnan(event.relative_humidity))
-  {
-    Serial.println(F("Error reading humidity!"));
-  }
-  else
-  {
-    Serial.print(F("  Humidity Outside: "));
-    Serial.print(event.relative_humidity);
-    Serial.println(F("%"));
-    outsideHumid->save(event.relative_humidity);
-  }
-
-
+  float temp = SHTSensor.getTemperature();
+  Serial.print("Temperature(C): ");
+  Serial.println(temp);
+  insideTemp->save(temp);
   set_led_status(0); // all good
 }
 
