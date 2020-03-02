@@ -3,9 +3,8 @@
 #include <WiFi.h>
 #include <AdafruitIO_WiFi.h>
 #include <Adafruit_Sensor.h>
-#include <Wire.h>
+#include <DHT.h>
 #include <DHT_U.h>
-// #include <DHT.h>
 
 #define DHTTYPE DHT22 // DHT 22 (AM2302)
 #define DHTPIN_IN 5   // Digital pin connected to the DHT sensor
@@ -23,7 +22,7 @@ void setup_leds();
 void pulse_leds(uint8_t nPulses, uint8_t pulseSpeed);
 void setup_wifi();
 void set_led_status(uint8_t status);
-int32_t measure_resistance(uint8_t digitalDrivePin, uint8_t digitalCounterPin, uint8_t analogReadPin);
+int32_t measure_resistance(uint8_t currentPath);
 void setupCurrentPath(uint8_t iPath, uint8_t changeCurrentPath);
 
 // defin LED parameters
@@ -45,14 +44,19 @@ AdafruitIO_Feed *outsideHumid = io.feed("outside_humid2");
 // read analog channels
 // defines for moisture sensins
 uint16_t analogValue = 0;
-uint8_t goodPins[13] = {34, 32, 33, 35}; // these work with wifi...
-const uint8_t MOIST_SENSE_1 = 32;
-const uint8_t MOIST_DRIVE_1 = 16;
-const uint8_t MOIST_COUNTER_1 = 17;
-const uint8_t N_READS = 5;          // Number of sensor reads for filtering
+uint8_t goodPins[13] = {34, 32, 33, 25, 26, 27, 14, 12, 13, 4, 0, 2, 15}; // they all seem to work...
+const uint8_t MOIST_SENSE_1 = 12;
+const uint8_t MOIST_SENSE_2 = 13;
+const uint8_t MOIST_SUPPL_1 = 17;
+const uint8_t MOIST_SUPPL_2 = 16;
+uint32_t fullRes1;
+uint8_t activeDigitalPin;
+uint8_t doReadForward = 0;           // switch between current during analog read of moisture sensor
+const uint8_t N_READS = 10;          // Number of sensor reads for filtering
 const uint16_t COMP_RESISTOR = 6000; // Constant value of known resistor in Ohms
 const uint32_t MEGA = 1000000;
-const uint16_t MAX_READ_OUT = 4095;
+uint8_t supplyVoltageAnalogPin;
+uint8_t sensorVoltageAnalogPin;
 
 void setup()
 {
@@ -86,8 +90,9 @@ void setup()
   Serial.println("done!");
 
   // setup pins
-  pinMode(MOIST_DRIVE_1, OUTPUT);
-  pinMode(MOIST_COUNTER_1, OUTPUT);
+  pinMode(MOIST_SUPPL_1, OUTPUT);
+  pinMode(MOIST_SUPPL_2, OUTPUT);
+  fullRes1 = measure_resistance(0);
 
   Serial.println();
   Serial.println("Ready to rumble!");
@@ -100,9 +105,12 @@ void loop()
   // it should always be present at the top of your loop
 
   // analogValue = analogRead(goodPins[1]); // read first valid analog pin
-  uint32_t currentRes1 = measure_resistance(MOIST_DRIVE_1, MOIST_COUNTER_1, MOIST_SENSE_1);
-  Serial.print("Measured resistance 1: ");
+  uint32_t currentRes1 = measure_resistance(0);
+  fullRes1 = (currentRes1 + fullRes1) / 2; // moving average
+  Serial.print("[SLAVE] Measured resistance 1: ");
   Serial.println(currentRes1);
+  Serial.print("[SLAVE] Averaged resistance 1: ");
+  Serial.println(fullRes1);
 
   EVERY_N_SECONDS(20) { update_humid_values(); } // change patterns periodically
 
@@ -269,38 +277,74 @@ void update_humid_values()
   }
 }
 
-int32_t measure_resistance(uint8_t digitalDrivePin, uint8_t digitalCounterPin, uint8_t analogReadPin)
+int32_t measure_resistance(uint8_t currentPath)
 {
-  // digitalDrivePin - set this high/low to actually make current flow
-  // digitalCounterPin - set this high/low to make reverse current flow, 
-    // otherwise we might do electrolysis or some shit
-  // analogReadPin - read from this pin to get the actual value
+  // Serial.print("[SLAVE] Measuring soil resistance...");
+  // http://vanderleevineyard.com/vineyard-blog/-the-vinduino-project-3-make-a-low-cost-soil-moisture-sensor-reader
+  // read sensor, filter, and calculate resistance value
+  // Noise filter: median filter
+
   int32_t resistance = 0;     // reset resistance
   int32_t tempResistance = 0; // reset resistance
-
-  // measure analog values N times, switch between current paths each time
   for (int i = 0; i < N_READS; i++)
   {
-    // setupCurrentPath(currentPath, 1); // Prepare the digital and analog pin values
+    setupCurrentPath(currentPath, 1); // Prepare the digital and analog pin values
 
-    digitalWrite(digitalDrivePin, HIGH); // set the voltage supply on
+    digitalWrite(activeDigitalPin, HIGH); // set the voltage supply on
     delay(10);
-    int16_t sensorReadOut = analogRead(analogReadPin);          // read the sensor voltage
-    digitalWrite(digitalDrivePin, LOW);                        // set the voltage supply off
+    int16_t supplyReadOut = analogRead(26); // read the supply voltage
+    int16_t sensorReadOut = analogRead(25); // read the sensor voltage
+    digitalWrite(activeDigitalPin, LOW);    // set the voltage supply off
     delay(10);
+    Serial.print("supplyReadOut");
+    Serial.println(supplyReadOut);
+    Serial.print("sensorReadOut");
+    Serial.println(sensorReadOut);
 
-    // counter the read current, but don't measure, as we don't want to waste
-    // the few precios analog pins we have...
-    digitalWrite(digitalCounterPin, HIGH); // set the voltage supply on
-    delay(10);
-    digitalWrite(digitalCounterPin, LOW);              // set the voltage supply off
-    delay(10);
-
-    tempResistance = int32_t(float(COMP_RESISTOR) * (MAX_READ_OUT - sensorReadOut) / sensorReadOut);
+    int16_t diffRead = supplyReadOut - sensorReadOut;
+    // make sure we don't have short, in which case both values are very close
+    if ((sensorReadOut >= 3) & (diffRead > 3))
+      tempResistance = int32_t(float(COMP_RESISTOR) * (supplyReadOut - sensorReadOut) / sensorReadOut);
+    else if ((sensorReadOut >= 3) & !(diffRead > 3)) // short, so set res close to zero
+      tempResistance = 1;                            // set to 1M ohm as upper limit
+    else
+      tempResistance = MEGA * 3; // set to 1M ohm as upper limit
+                                 // if sensor readout becomes too small, resistance values become meaningless
+                                 // so set upper limit for possible resistance
     resistance += tempResistance;
   }
 
   resistance = resistance / N_READS;
+  if (resistance > MEGA * 3)
+    resistance = MEGA * 3; // set to mega ohm
 
   return resistance;
+}
+
+void setupCurrentPath(uint8_t iPath, uint8_t changeCurrentPath)
+{
+  // setup current paths for nPaths, where each path is connected to their own
+  // moisture sensing gypsum sensor
+  switch (iPath)
+  {
+  case 0: // first current path
+    if (doReadForward)
+    {
+      activeDigitalPin = MOIST_SUPPL_2;
+      supplyVoltageAnalogPin = MOIST_SENSE_2;
+      sensorVoltageAnalogPin = MOIST_SENSE_1;
+    }
+    else
+    {
+      activeDigitalPin = MOIST_SUPPL_1;
+      supplyVoltageAnalogPin = MOIST_SENSE_1;
+      sensorVoltageAnalogPin = MOIST_SENSE_2;
+    }
+    break;
+  default:
+    break;
+  }
+
+  if (changeCurrentPath)
+    doReadForward != doReadForward;
 }
