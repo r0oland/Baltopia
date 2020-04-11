@@ -17,8 +17,8 @@ void print_values_serial(Adafruit_BME280 *bmeSensor);
 void print_values_LCD(Adafruit_BME280 *bmeSensor, LiquidCrystal_I2C *lcd);
 void send_aio_values(Adafruit_BME280 *insideSensor, Adafruit_BME280 *outsideSensor);
 
-Adafruit_BME280 InsideBME;  // I2C
-Adafruit_BME280 OutsideBME; // I2C
+Adafruit_BME280 RightBME; // I2C
+Adafruit_BME280 LeftBME;  // I2C
 
 uint16_t delayTime = 1000;
 const uint8_t INSIDE_ADDRESS = 0x77;
@@ -31,21 +31,77 @@ AdafruitIO_Feed *teraOuHum = io.feed("teraOuHum");
 AdafruitIO_Feed *teraInTemp = io.feed("teraInTemp");
 AdafruitIO_Feed *teraOutTemp = io.feed("teraOutTemp");
 
+uint8_t humidRunning = false;
+// uint32_t humdOnTime = 0;             // will store last time LED was updated
+// const uint32_t humidOnTime = 30000;  // keep moisture on for this long
+const float minRequiredOnHumid = 75; // keep at least 75% humidity
+const float minRequiredOffHumid = 90;
+// if humid is running, keep it running until we reach this value
+
 void setup()
 {
   Serial.begin(921600);
   while (!Serial)
     ; // wait for serial monitor to open
+  Serial.println("");
+  Serial.println("");
 
   lcd.init(); // initialize the lcd
-  // Print a message to the LCD.
   lcd.backlight();
+
+  // setting up the sensors ====================================================
   lcd.setCursor(0, 0);
-  lcd.print("Hallo Geliebte!");
+  lcd.print("Setting up sensors:");
   lcd.setCursor(0, 1);
-  lcd.print("Ich lieb dich enton!");
+  lcd.print("Right sensor...");
+  Serial.print("Looking for right humid. sensor...");
+  if (!RightBME.begin(INSIDE_ADDRESS, &Wire))
+  {
+    Serial.println("Could not find a valid BME280 sensor, check wiring!");
+    while (1)
+      ;
+  }
+  Serial.println("found!");
+  lcd.print("found!");
+
   lcd.setCursor(0, 2);
-  lcd.print("3000+");
+  lcd.print("Left sensor...");
+  Serial.print("Looking for left humid. sensor...");
+  if (!LeftBME.begin(OUTSIDE_ADDRESS, &Wire))
+  {
+    Serial.println("Could not find a valid BME280 sensor, check wiring!");
+    while (1)
+      ;
+  }
+  Serial.println("found!");
+  lcd.print("found!");
+  delay(2000);
+
+  // connect to io.adafruit.com
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  Serial.print("Connecting to Adafruit IO");
+  lcd.print("Connecting to AIO");
+  io.connect();
+
+  // wait for a connection
+  lcd.setCursor(0, 1);
+  while (io.status() < AIO_CONNECTED)
+  {
+    Serial.print(".");
+    lcd.print(".");
+    delay(300);
+  }
+
+  // we are connected
+  Serial.println();
+  Serial.println(io.statusText());
+  send_aio_values(&RightBME, &LeftBME);
+
+  // setup my own IO pins
+  pinMode(D0, OUTPUT); // relais for fan and humidifier
+  digitalWrite(D0, 1);
+  pinMode(D5, INPUT); // button pin
 
   lcd.clear();
   lcd.setCursor(0, 0);
@@ -54,67 +110,73 @@ void setup()
   lcd.print("Out: ");
   lcd.setCursor(0, 2);
   lcd.print("IO status: ");
-
-  Serial.print(F("Looking for inside humid. sensor..."));
-  if (!InsideBME.begin(INSIDE_ADDRESS, &Wire))
-  {
-    Serial.println("Could not find a valid BME280 sensor, check wiring!");
-    while (1)
-      ;
-  }
-  Serial.println("found!");
-
-  Serial.print(F("Looking for outside humid. sensor..."));
-  if (!OutsideBME.begin(OUTSIDE_ADDRESS, &Wire))
-  {
-    Serial.println("Could not find a valid BME280 sensor, check wiring!");
-    while (1)
-      ;
-  }
-  Serial.println("found!");
-
-  // connect to io.adafruit.com
-  Serial.print("Connecting to Adafruit IO");
-  io.connect();
-
-  // wait for a connection
-  while (io.status() < AIO_CONNECTED)
-  {
-    Serial.print(".");
-    delay(250);
-  }
-
-  // we are connected
-  Serial.println();
-  Serial.println(io.statusText());
-  send_aio_values(&InsideBME, &OutsideBME);
+  lcd.setCursor(0, 3);
+  lcd.print("Humid: ");
 }
 
 void loop()
 {
   io.run(); // io.run(); is required for all sketches.
 
-  EVERY_N_SECONDS(1)
+  EVERY_N_SECONDS(5) // print lcd and serial values...
   {
-    // Only needed in forced mode! In normal mode, you can remove the next line.
-    InsideBME.takeForcedMeasurement(); // has no effect in normal mode
-    Serial.println("Inside Terarium:");
-    print_values_serial(&InsideBME);
+    Serial.println("Right Terarium:");
+    RightBME.takeForcedMeasurement();
+    print_values_serial(&RightBME);
     lcd.setCursor(5, 0);
-    print_values_LCD(&InsideBME, &lcd);
+    print_values_LCD(&RightBME, &lcd);
 
-    OutsideBME.takeForcedMeasurement(); // has no effect in normal mode
-    Serial.println("Outside Terarium:");
-    print_values_serial(&OutsideBME);
+    Serial.println("Left Terarium:");
+    LeftBME.takeForcedMeasurement();
+    print_values_serial(&LeftBME);
     lcd.setCursor(5, 1);
-    print_values_LCD(&OutsideBME, &lcd);
+    print_values_LCD(&LeftBME, &lcd);
+
+    Serial.print("Humid running: ");
+    Serial.println(humidRunning);
   }
 
-  EVERY_N_SECONDS(20)
+  EVERY_N_SECONDS(20) // send AIO values and update AIO status
   {
-    send_aio_values(&InsideBME, &OutsideBME);
+    send_aio_values(&RightBME, &LeftBME);
     lcd.setCursor(11, 2);
     lcd.print(io.status());
+  }
+
+  EVERY_N_SECONDS(10)
+  {
+    // get latest humidity reading
+    RightBME.takeForcedMeasurement();
+    LeftBME.takeForcedMeasurement();
+    float rightHumid = RightBME.readHumidity();
+    float leftHumid = LeftBME.readHumidity();
+
+    // if one is to low, turn on humidifier
+    bool leftHumidToLow = (leftHumid < minRequiredOnHumid);
+    bool rightHumidToLow = (rightHumid < minRequiredOnHumid);
+    bool humidToLow = rightHumidToLow || leftHumidToLow;
+
+    // if both are high enough, turn off humidifier
+    bool leftHumidReached = (leftHumid > minRequiredOffHumid);
+    bool rightHumidReached = (rightHumid > minRequiredOffHumid);
+    bool humidReached = leftHumidReached && rightHumidReached;
+    if (humidToLow && !humidRunning)
+    {
+      // humdOnTime = millis();
+      humidRunning = true;
+      digitalWrite(D0, 0);
+      Serial.println("Turned ON humidifier");
+      lcd.setCursor(7, 3);
+      lcd.print("Low...Running");
+    }
+    else if (humidRunning && humidReached)
+    {
+      humidRunning = false;
+      digitalWrite(D0, 1);
+      Serial.println("Turned OFF humidifier");
+      lcd.setCursor(7, 3);
+      lcd.print("OK           ");
+    }
   }
 }
 
@@ -138,7 +200,6 @@ void print_values_serial(Adafruit_BME280 *bmeSensor)
 
 void print_values_LCD(Adafruit_BME280 *bmeSensor, LiquidCrystal_I2C *lcd)
 {
-
   lcd->print("");
   lcd->print(bmeSensor->readTemperature());
   lcd->print("*C ");
