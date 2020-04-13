@@ -16,6 +16,9 @@ LiquidCrystal_I2C lcd(0x27, 20, 4); // set the LCD address to 0x27 for a 16 char
 void print_values_serial(Adafruit_BME280 *bmeSensor);
 void print_values_LCD(Adafruit_BME280 *bmeSensor, LiquidCrystal_I2C *lcd);
 void send_aio_values(Adafruit_BME280 *insideSensor, Adafruit_BME280 *outsideSensor);
+void updateMinHumid(AdafruitIO_Data *data);
+void updateMaxHumid(AdafruitIO_Data *data);
+void lcd_update_humid_info();
 
 Adafruit_BME280 RightBME; // I2C
 Adafruit_BME280 LeftBME;  // I2C
@@ -26,17 +29,18 @@ const uint8_t OUTSIDE_ADDRESS = 0x76;
 
 // setup adafruit stuff
 AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, WIFI_SSID, WIFI_PWD);
-AdafruitIO_Feed *teraInHum = io.feed("teraInHum");
-AdafruitIO_Feed *teraOuHum = io.feed("teraOuHum");
-AdafruitIO_Feed *teraInTemp = io.feed("teraInTemp");
-AdafruitIO_Feed *teraOutTemp = io.feed("teraOutTemp");
+AdafruitIO_Feed *bigTeraHumid = io.feed("a_big_tera_humid");
+AdafruitIO_Feed *smallTeraHumid = io.feed("a_small_tera_humid");
+AdafruitIO_Feed *bigTeraTemp = io.feed("a_big_tera_temp");
+AdafruitIO_Feed *smallTerraTemp = io.feed("a_small_tera_temp");
+AdafruitIO_Feed *minHumidFeed = io.feed("a_min_humid");
+AdafruitIO_Feed *maxHumidFeed = io.feed("a_max_humid");
 
 uint8_t humidRunning = false;
 // uint32_t humdOnTime = 0;             // will store last time LED was updated
 // const uint32_t humidOnTime = 30000;  // keep moisture on for this long
-const float minRequiredOnHumid = 75; // keep at least 75% humidity
-const float minRequiredOffHumid = 90;
-// if humid is running, keep it running until we reach this value
+float minRequiredOnHumid = 0;  // keep at least this much humidity
+float minRequiredOffHumid = 0; // humid until we reach this value
 
 void setup()
 {
@@ -62,10 +66,10 @@ void setup()
       ;
   }
   Serial.println("found!");
-  lcd.print("found!");
+  lcd.print("OK!");
 
   lcd.setCursor(0, 2);
-  lcd.print("Left sensor...");
+  lcd.print(" Left sensor...");
   Serial.print("Looking for left humid. sensor...");
   if (!LeftBME.begin(OUTSIDE_ADDRESS, &Wire))
   {
@@ -74,7 +78,7 @@ void setup()
       ;
   }
   Serial.println("found!");
-  lcd.print("found!");
+  lcd.print("OK!");
   delay(2000);
 
   // connect to io.adafruit.com
@@ -83,6 +87,8 @@ void setup()
   Serial.print("Connecting to Adafruit IO");
   lcd.print("Connecting to AIO");
   io.connect();
+  minHumidFeed->onMessage(updateMinHumid);
+  maxHumidFeed->onMessage(updateMaxHumid);
 
   // wait for a connection
   lcd.setCursor(0, 1);
@@ -92,11 +98,12 @@ void setup()
     lcd.print(".");
     delay(300);
   }
-
   // we are connected
   Serial.println();
   Serial.println(io.statusText());
   send_aio_values(&RightBME, &LeftBME);
+  minHumidFeed->get();
+  maxHumidFeed->get();
 
   // setup my own IO pins
   pinMode(D0, OUTPUT); // relais for fan and humidifier
@@ -105,13 +112,14 @@ void setup()
 
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print(" In: ");
+  lcd.print("R: ");
   lcd.setCursor(0, 1);
-  lcd.print("Out: ");
-  lcd.setCursor(0, 2);
-  lcd.print("IO status: ");
+  lcd.print("L: ");
   lcd.setCursor(0, 3);
-  lcd.print("Humid: ");
+  lcd.print("IO status: ");
+
+  // lcd.print("HuOff L:100% H:100%");
+  lcd_update_humid_info();
 }
 
 void loop()
@@ -123,13 +131,13 @@ void loop()
     Serial.println("Right Terarium:");
     RightBME.takeForcedMeasurement();
     print_values_serial(&RightBME);
-    lcd.setCursor(5, 0);
+    lcd.setCursor(3, 0);
     print_values_LCD(&RightBME, &lcd);
 
     Serial.println("Left Terarium:");
     LeftBME.takeForcedMeasurement();
     print_values_serial(&LeftBME);
-    lcd.setCursor(5, 1);
+    lcd.setCursor(3, 1);
     print_values_LCD(&LeftBME, &lcd);
 
     Serial.print("Humid running: ");
@@ -166,17 +174,14 @@ void loop()
       humidRunning = true;
       digitalWrite(D0, 0);
       Serial.println("Turned ON humidifier");
-      lcd.setCursor(7, 3);
-      lcd.print("Low...Running");
     }
     else if (humidRunning && humidReached)
     {
       humidRunning = false;
       digitalWrite(D0, 1);
       Serial.println("Turned OFF humidifier");
-      lcd.setCursor(7, 3);
-      lcd.print("OK           ");
     }
+    lcd_update_humid_info();
   }
 }
 
@@ -210,9 +215,52 @@ void print_values_LCD(Adafruit_BME280 *bmeSensor, LiquidCrystal_I2C *lcd)
 
 void send_aio_values(Adafruit_BME280 *insideSensor, Adafruit_BME280 *outsideSensor)
 {
-  teraInHum->save(insideSensor->readHumidity());
-  teraInTemp->save(insideSensor->readTemperature());
+  bigTeraHumid->save(insideSensor->readHumidity());
+  bigTeraTemp->save(insideSensor->readTemperature());
 
-  teraOuHum->save(outsideSensor->readHumidity());
-  teraOutTemp->save(outsideSensor->readTemperature());
+  smallTeraHumid->save(outsideSensor->readHumidity());
+  smallTerraTemp->save(outsideSensor->readTemperature());
+}
+
+void updateMinHumid(AdafruitIO_Data *data)
+{
+  // convert the data to integer
+  minRequiredOnHumid = data->toFloat();
+
+  Serial.print("New minimum Humidity: ");
+  Serial.println(minRequiredOnHumid);
+  lcd_update_humid_info();
+}
+
+void updateMaxHumid(AdafruitIO_Data *data)
+{
+  // convert the data to integer
+  minRequiredOffHumid = data->toFloat();
+
+  Serial.print("New maximum Humidity: ");
+  Serial.println(minRequiredOffHumid);
+  lcd_update_humid_info();
+}
+
+void lcd_update_humid_info()
+{
+  lcd.setCursor(0, 2);
+  lcd.print("                    ");
+  lcd.setCursor(0, 2);
+  if (humidRunning)
+  {
+    lcd.print("HuOn ");
+  }
+  else
+  {
+    lcd.print("HuOff");
+  }
+  lcd.setCursor(6, 2);
+  lcd.print("L:");
+  lcd.print((uint16_t)minRequiredOnHumid);
+  lcd.print("%");
+  lcd.setCursor(13, 2);
+  lcd.print("H:");
+  lcd.print((uint16_t)minRequiredOffHumid);
+  lcd.print("%");
 }
