@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <FastLED.h>
 #include <WiFi.h>
+// #include <ESP8266WiFi.h>
+
 #include <AdafruitIO_WiFi.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>

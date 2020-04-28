@@ -1,20 +1,17 @@
 #include <Arduino.h>
-// #include <WiFi.h> % for ESP32
+
 #include <ESP8266WiFi.h>
 #include <AdafruitIO_WiFi.h>
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
-#include <LiquidCrystal_I2C.h>
 #include <FastLED.h>
 
 #include "secrets.h"
 
-// // LiquidCrystal_I2C lcd(0x27, 20, 4); // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 //void print_values_serial();
 void print_values_serial(Adafruit_BME280 *bmeSensor);
-// // void print_values_LCD(Adafruit_BME280 *bmeSensor, LiquidCrystal_I2C *lcd);
 void send_aio_values(Adafruit_BME280 *insideSensor, Adafruit_BME280 *outsideSensor);
 void updateMinHumid(AdafruitIO_Data *data);
 void updateMaxHumid(AdafruitIO_Data *data);
